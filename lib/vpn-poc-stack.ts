@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import { AppConfig } from "../config/types";
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 type VpnPocStackProps = cdk.StackProps & {
   config: AppConfig;
@@ -90,6 +91,15 @@ export class VpnPocStack extends cdk.Stack {
     );
 
     /**
+     * VPN トンネルアクティビティログ用 CloudWatch Log Group
+     */
+    const vpnTunnelLogGroup = new logs.LogGroup(this, 'VpnTunnelLogGroup', {
+      logGroupName: '/vpn-poc/site-to-site-vpn/tunnel-activity',
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: config.removalPolicy,
+    });
+
+    /**
      * AWS側 Virtual Private Gateway
      */
     const awsSideVgw = new ec2.CfnVPNGateway(this, 'AwsSideVgw', {
@@ -175,6 +185,29 @@ export class VpnPocStack extends cdk.Stack {
 
         // AWS側ネットワーク
         remoteIpv4NetworkCidr: config.awsVpcCidr,
+
+        vpnTunnelOptionsSpecifications: [
+          {
+            ikeVersions: [{ value: 'ikev2' }],
+            logOptions: {
+              cloudwatchLogOptions: {
+                logEnabled: true,
+                logGroupArn: vpnTunnelLogGroup.logGroupArn,
+                logOutputFormat: 'json',
+              },
+            },
+          },
+          {
+            ikeVersions: [{ value: 'ikev2' }],
+            logOptions: {
+              cloudwatchLogOptions: {
+                logEnabled: true,
+                logGroupArn: vpnTunnelLogGroup.logGroupArn,
+                logOutputFormat: 'json',
+              },
+            },
+          },
+        ],
 
         tags: [
           {
