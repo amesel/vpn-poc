@@ -33,7 +33,7 @@ AWS Site-to-Site VPN の動作確認を目的とした CDK プロジェクトで
 |---|---|
 | `VpnPocAwsSideStack` | AWS 側 VPC・EC2・EICE |
 | `VpnPocOnPremSideStack` | 仮想オンプレ側 VPC・VPN EC2（strongSwan）・疎通確認 EC2・EICE |
-| `VpnPocStack` | VGW・Customer Gateway・S2S VPN Connection・EIP・ルートテーブル・SG ルール |
+| `VpnPocStack` | VGW・Customer Gateway・S2S VPN Connection（IKEv2）・EIP・ルートテーブル・SG ルール・CloudWatch Logs |
 
 ## 前提条件
 
@@ -138,7 +138,10 @@ VPN EC2 の SG inbound ルール（UDP 500 / UDP 4500）が実際の Outside IP 
 
 AWS Console → VPC → Site-to-Site VPN Connections → 対象接続を選択 → **Download configuration**
 
-- Vendor: `Generic` または `Strongswan`
+- Vendor: `Strongswan`
+- IKE version: `IKEv2`
+
+> AWS 側トンネルは IKEv2 のみ受け付けるため、Strongswan の IKEv2 向け設定ファイルを選択する。
 
 ---
 
@@ -160,6 +163,7 @@ sudo vi /etc/ipsec.conf
 
 ダウンロードした設定ファイルの内容を貼り付ける。以下の点を確認する。
 
+- `keyexchange=ikev2` が各 Tunnel セクションに設定されていること
 - `leftupdown` の `-r` パラメータが AWS 側 VPC CIDR（`10.0.0.0/16`）になっていること
 - Tunnel 1 と Tunnel 2 の `-m`（mark）が異なる値になっていること
 
@@ -203,6 +207,13 @@ sudo ipsec statusall
 **AWS Console で確認**
 
 VPN Connections → Tunnel details → Status が `UP` に変わっていること
+
+**CloudWatch Logs で確認**
+
+CloudWatch → Log groups → `/vpn-poc/site-to-site-vpn/tunnel-activity`
+
+- トンネルの接続・切断イベントが JSON 形式で記録される
+- `"status": "UP"` のログが出力されていれば正常
 
 ---
 
